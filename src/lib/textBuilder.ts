@@ -13,7 +13,7 @@ function formatDate(date: Date) {
 
 export function buildBirthdayText(persons: PersonInput[]) {
   const createdDate = formatDate(new Date())
-  const lines = [`# 由 农历生日→日历提醒 生成于 ${createdDate}`]
+  const lines = [`\uFEFF# 由 农历生日→日历提醒 生成于 ${createdDate}`]
 
   for (const event of generateBirthdayEvents(persons)) {
     lines.push(
