@@ -7,7 +7,7 @@ import {
   Sparkles,
   Trash2,
 } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import type { CSSProperties } from "react"
 import { toast } from "sonner"
 
@@ -177,6 +177,14 @@ function App() {
   const [exportSheetOpen, setExportSheetOpen] = useState(false)
   const [exportFormat, setExportFormat] = useState<ExportFormat>("ics")
   const [wechatSheet, setWechatSheet] = useState<{ open: boolean; content: string; format: ExportFormat }>({ open: false, content: "", format: "ics" })
+  const [showAllYears, setShowAllYears] = useState(false)
+  const [yearInput, setYearInput] = useState("")
+
+  useEffect(() => {
+    if (showAllYears) {
+      setYearInput(selectedPerson?.solarYear?.toString() ?? "")
+    }
+  }, [selectedPerson?.id])
 
   const selectedColor = selectedPerson
     ? PERSON_COLORS[selectedPerson.colorIndex]
@@ -482,33 +490,67 @@ function App() {
                 <div className="space-y-3">
                   <div className="grid grid-cols-3 gap-2">
                     <div className="min-w-0 space-y-2">
-                      <Label>年</Label>
-                      <Select
-                        value={selectedPerson.solarYear?.toString() ?? ""}
-                        onValueChange={(value) =>
-                          dispatch({
-                            type: "UPDATE",
-                            id: selectedPerson.id,
-                            patch: buildSolarPatch(selectedPerson, {
-                              solarYear: Number(value),
-                            }),
-                          })
-                        }
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="年份" />
-                        </SelectTrigger>
-                        <SelectContent
-                          position="popper"
-                          className="max-h-60 w-(--radix-select-trigger-width)"
+                      <Label>{showAllYears ? "公元" : "年"}</Label>
+                      {showAllYears ? (
+                        <Input
+                          type="number"
+                          min={1}
+                          max={SOLAR_YEAR_MAX}
+                          placeholder="年份"
+                          value={yearInput}
+                          aria-invalid={
+                            yearInput !== "" &&
+                            (!/^\d+$/.test(yearInput) ||
+                              Number(yearInput) < 1 ||
+                              Number(yearInput) > SOLAR_YEAR_MAX)
+                          }
+                          onChange={(e) => {
+                            const raw = e.target.value
+                            setYearInput(raw)
+                            const year = Number(raw)
+                            if (
+                              /^\d+$/.test(raw) &&
+                              year >= 1 &&
+                              year <= SOLAR_YEAR_MAX
+                            ) {
+                              dispatch({
+                                type: "UPDATE",
+                                id: selectedPerson.id,
+                                patch: buildSolarPatch(selectedPerson, {
+                                  solarYear: year,
+                                }),
+                              })
+                            }
+                          }}
+                        />
+                      ) : (
+                        <Select
+                          value={selectedPerson.solarYear?.toString() ?? ""}
+                          onValueChange={(value) =>
+                            dispatch({
+                              type: "UPDATE",
+                              id: selectedPerson.id,
+                              patch: buildSolarPatch(selectedPerson, {
+                                solarYear: Number(value),
+                              }),
+                            })
+                          }
                         >
-                          {SOLAR_YEARS.map((year) => (
-                            <SelectItem key={year} value={year.toString()}>
-                              {year}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="年份" />
+                          </SelectTrigger>
+                          <SelectContent
+                            position="popper"
+                            className="max-h-60 w-(--radix-select-trigger-width)"
+                          >
+                            {SOLAR_YEARS.map((year) => (
+                              <SelectItem key={year} value={year.toString()}>
+                                {year}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
                     </div>
 
                     <div className="min-w-0 space-y-2">
@@ -573,6 +615,18 @@ function App() {
                       </Select>
                     </div>
                   </div>
+
+                  <label className="flex min-h-8 items-center gap-2 rounded-lg border bg-muted/30 px-2.5 text-sm">
+                    <Checkbox
+                      checked={showAllYears}
+                      onCheckedChange={(checked) => {
+                        const next = checked === true
+                        setShowAllYears(next)
+                        setYearInput(next ? (selectedPerson.solarYear?.toString() ?? "") : "")
+                      }}
+                    />
+                    显示所有年份
+                  </label>
 
                   {solarConversion ? (
                     <div className="flex items-start gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm text-violet-950">
