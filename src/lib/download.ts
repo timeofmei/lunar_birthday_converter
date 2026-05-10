@@ -1,3 +1,7 @@
+export function isWechatBrowser() {
+  return /MicroMessenger/i.test(navigator.userAgent)
+}
+
 export function downloadTextFile(
   filename: string,
   content: string,

@@ -36,7 +36,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { PERSON_COLORS } from "@/lib/colors"
 import { MAX_PERSON_COUNT, SOLAR_TODAY, SOLAR_YEAR_MAX, SOLAR_YEAR_MIN } from "@/lib/constants"
 import { getSolarMonthDayCount, solarToLunar } from "@/lib/converter"
-import { downloadTextFile } from "@/lib/download"
+import { downloadTextFile, isWechatBrowser } from "@/lib/download"
 import { buildIcsCalendar, ICS_FILENAME } from "@/lib/icsBuilder"
 import { buildBirthdayText, TEXT_FILENAME } from "@/lib/textBuilder"
 import type { PersonInput } from "@/lib/types"
@@ -176,6 +176,7 @@ function App() {
   const { state, selectedPerson, dispatch, canAddPerson } = usePersonStore()
   const [exportSheetOpen, setExportSheetOpen] = useState(false)
   const [exportFormat, setExportFormat] = useState<ExportFormat>("ics")
+  const [wechatSheet, setWechatSheet] = useState<{ open: boolean; content: string; format: ExportFormat }>({ open: false, content: "", format: "ics" })
 
   const selectedColor = selectedPerson
     ? PERSON_COLORS[selectedPerson.colorIndex]
@@ -232,21 +233,23 @@ function App() {
   }
 
   const handleConfirmExport = () => {
-    if (exportFormat === "ics") {
-      downloadTextFile(
-        ICS_FILENAME,
-        buildIcsCalendar(state.persons),
-        "text/calendar;charset=utf-8",
-      )
-    } else {
-      downloadTextFile(
-        TEXT_FILENAME,
-        buildBirthdayText(state.persons),
-        "text/plain;charset=utf-8",
-      )
-    }
+    const content =
+      exportFormat === "ics"
+        ? buildIcsCalendar(state.persons)
+        : buildBirthdayText(state.persons)
 
     setExportSheetOpen(false)
+
+    if (isWechatBrowser()) {
+      setWechatSheet({ open: true, content, format: exportFormat })
+      return
+    }
+
+    if (exportFormat === "ics") {
+      downloadTextFile(ICS_FILENAME, content, "text/calendar;charset=utf-8")
+    } else {
+      downloadTextFile(TEXT_FILENAME, content, "text/plain;charset=utf-8")
+    }
   }
 
   return (
@@ -731,6 +734,47 @@ function App() {
             </SheetClose>
             <Button type="button" onClick={handleConfirmExport}>
               确认导出
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
+      <Sheet open={wechatSheet.open} onOpenChange={(open) => setWechatSheet((s) => ({ ...s, open }))}>
+        <SheetContent
+          side="bottom"
+          className="mx-auto flex max-h-[80dvh] max-w-sm flex-col rounded-t-xl pb-[max(1rem,env(safe-area-inset-bottom))]"
+        >
+          <SheetHeader>
+            <SheetTitle>
+              {wechatSheet.format === "ics" ? "复制 ICS 内容" : "复制文本内容"}
+            </SheetTitle>
+            <SheetDescription>
+              {wechatSheet.format === "ics"
+                ? "复制后，在电脑浏览器中粘贴到日历导入工具，或发送给自己再导入。"
+                : "复制后粘贴到任意文本编辑器保存。"}
+            </SheetDescription>
+          </SheetHeader>
+          <textarea
+            readOnly
+            className="min-h-0 flex-1 resize-none rounded-lg border bg-muted/30 p-3 font-mono text-xs"
+            value={wechatSheet.content}
+            onFocus={(e) => e.target.select()}
+          />
+          <SheetFooter className="grid grid-cols-2 gap-2">
+            <SheetClose asChild>
+              <Button type="button" variant="outline">关闭</Button>
+            </SheetClose>
+            <Button
+              type="button"
+              onClick={() => {
+                navigator.clipboard.writeText(wechatSheet.content.replace(/^﻿/, "")).then(() => {
+                  toast.success("已复制到剪贴板")
+                }).catch(() => {
+                  toast.error("复制失败，请手动长按选择全部")
+                })
+              }}
+            >
+              复制全部
             </Button>
           </SheetFooter>
         </SheetContent>
