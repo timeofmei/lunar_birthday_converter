@@ -250,7 +250,7 @@ function App() {
   }
 
   return (
-    <main className="mx-auto flex h-dvh w-full max-w-sm flex-col border-x bg-background text-left shadow-sm">
+    <main className="mx-auto flex h-dvh w-full flex-col bg-background text-left sm:max-w-sm sm:border-x sm:shadow-sm">
       <header className="flex flex-none items-center gap-3 border-b px-4 py-3">
         <div className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
           <Gift className="size-5" />
