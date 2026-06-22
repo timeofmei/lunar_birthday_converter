@@ -2,37 +2,26 @@ import {
   Calendar,
   Download,
   FileText,
-  Gift,
   Plus,
   Sparkles,
   Trash2,
 } from "lucide-react"
 import { useEffect, useState } from "react"
-import type { CSSProperties } from "react"
+import type { CSSProperties, ReactNode } from "react"
 import { toast } from "sonner"
 
-import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import {
+  Button,
+  Card,
+  Cursor,
+  Footer,
+  Input,
+  Modal,
   Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
-  Sheet,
-  SheetClose,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet"
+  Switch,
+  Title,
+} from "animal-island-ui"
 import { Toaster } from "@/components/ui/sonner"
-import { Textarea } from "@/components/ui/textarea"
 import { PERSON_COLORS } from "@/lib/colors"
 import { MAX_PERSON_COUNT, SOLAR_TODAY, SOLAR_YEAR_MAX, SOLAR_YEAR_MIN } from "@/lib/constants"
 import { getSolarMonthDayCount, solarToLunar } from "@/lib/converter"
@@ -40,7 +29,6 @@ import { downloadTextFile, isWechatBrowser } from "@/lib/download"
 import { buildIcsCalendar, ICS_FILENAME } from "@/lib/icsBuilder"
 import { buildBirthdayText, TEXT_FILENAME } from "@/lib/textBuilder"
 import type { PersonInput } from "@/lib/types"
-import { cn } from "@/lib/utils"
 import { usePersonStore } from "@/hooks/usePersonStore"
 
 const LUNAR_MONTHS = [
@@ -95,6 +83,17 @@ const SOLAR_YEARS = Array.from(
   { length: SOLAR_YEAR_MAX - SOLAR_YEAR_MIN + 1 },
   (_, index) => SOLAR_YEAR_MAX - index,
 )
+
+const LEAP_FALLBACK_OPTIONS = [
+  { key: "sameMonth", label: "用普通月代替" },
+  { key: "nextMonth", label: "用后一月代替" },
+  { key: "skip", label: "跳过该年" },
+]
+
+const DAY30_FALLBACK_OPTIONS = [
+  { key: "use29", label: "用 29 日代替" },
+  { key: "skip", label: "跳过该年" },
+]
 
 function getSolarMonths(year: number | null) {
   if (!year) {
@@ -170,6 +169,21 @@ function getExportBlockReason(persons: PersonInput[]) {
   return null
 }
 
+function FieldLabel({ children }: { children: ReactNode }) {
+  return (
+    <span className="mb-2 block text-sm font-bold" style={{ color: "#794f27" }}>
+      {children}
+    </span>
+  )
+}
+
+const TEXTAREA_STYLE: CSSProperties = {
+  background: "rgb(247, 243, 223)",
+  border: "2.5px solid #c4b89e",
+  color: "#725d42",
+  fontFamily: "inherit",
+}
+
 type ExportFormat = "ics" | "txt"
 
 function App() {
@@ -214,12 +228,32 @@ function App() {
       : solarConversion?.lunarDay === 30
   const exportBlockReason = getExportBlockReason(state.persons)
 
+  const lunarMonthOptions = LUNAR_MONTHS.map((month, index) => ({
+    key: (index + 1).toString(),
+    label: month,
+  }))
+  const lunarDayOptions = LUNAR_DAYS.map((day, index) => ({
+    key: (index + 1).toString(),
+    label: day,
+  }))
+  const solarYearOptions = SOLAR_YEARS.map((year) => ({
+    key: year.toString(),
+    label: year.toString(),
+  }))
+  const solarMonthOptions = solarMonths.map((month) => ({
+    key: month.toString(),
+    label: `${month} 月`,
+  }))
+  const solarDayOptions = solarDays.map((day) => ({
+    key: day.toString(),
+    label: `${day} 日`,
+  }))
+
   const getPersonButtonStyle = (
     color: (typeof PERSON_COLORS)[number],
-  ): CSSProperties & { "--tw-ring-color": string } => ({
+  ): CSSProperties => ({
     backgroundColor: color.bg,
     color: color.text,
-    "--tw-ring-color": color.ring,
   })
 
   const handleExportClick = () => {
@@ -261,581 +295,545 @@ function App() {
   }
 
   return (
-    <main className="mx-auto flex h-dvh w-full flex-col bg-background text-left sm:max-w-sm sm:border-x sm:shadow-sm">
-      <header className="flex flex-none items-center gap-3 border-b px-4 py-3">
-        <div className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-          <Gift className="size-5" />
-        </div>
-        <div className="min-w-0">
-          <h1 className="!m-0 truncate !text-lg font-semibold !tracking-normal">
+    <Cursor>
+      <main
+        className="mx-auto flex h-dvh w-full flex-col text-left sm:max-w-sm"
+        style={{ background: "var(--parchment)" }}
+      >
+        <header
+          className="flex-none px-4 py-4"
+          style={{ borderBottom: "2px solid #e8dcc8" }}
+        >
+          <Title size="small" color="app-green">
             农历生日 → 日历提醒
-          </h1>
-          <p className="text-xs text-muted-foreground">
+          </Title>
+          <p className="mt-2 text-xs" style={{ color: "#8a7b66" }}>
             生成日历文件，导入提醒
           </p>
-        </div>
-      </header>
+        </header>
 
-      <section className="flex min-h-0 flex-1">
-        <aside className="flex w-[52px] flex-none flex-col items-center gap-2 overflow-y-auto border-r py-3">
-          {state.persons.map((person, index) => {
-            const color = PERSON_COLORS[person.colorIndex]
-            const isSelected = person.id === state.selectedId
-
-            return (
-              <button
-                key={person.id}
-                type="button"
-                aria-label={`选择 ${person.name || `第 ${index + 1} 人`}`}
-                className={cn(
-                  "flex size-9 items-center justify-center rounded-xl text-sm font-semibold outline-none transition hover:scale-[1.03] focus-visible:ring-2 focus-visible:ring-ring/50",
-                  isSelected && "ring-2 ring-offset-1",
-                )}
-                style={getPersonButtonStyle(color)}
-                onClick={() => dispatch({ type: "SELECT", id: person.id })}
-              >
-                {person.name.trim().charAt(0) || index + 1}
-              </button>
-            )
-          })}
-
-          <Button
-            type="button"
-            variant="outline"
-            size="icon-lg"
-            className={cn(
-              "border-dashed",
-              !canAddPerson && "cursor-not-allowed opacity-50",
-            )}
-            aria-disabled={!canAddPerson}
-            title={canAddPerson ? "添加人员" : `最多 ${MAX_PERSON_COUNT} 人`}
-            onClick={handleAddPerson}
+        <section className="flex min-h-0 flex-1">
+          <aside
+            className="flex w-[56px] flex-none flex-col items-center gap-2 overflow-y-auto py-3"
+            style={{ borderRight: "2px solid #e8dcc8" }}
           >
-            <Plus />
-          </Button>
-        </aside>
+            {state.persons.map((person, index) => {
+              const color = PERSON_COLORS[person.colorIndex]
+              const isSelected = person.id === state.selectedId
 
-        <section className="min-w-0 flex-1 overflow-y-auto px-3 py-3">
-          {!selectedPerson ? (
-            <div className="flex h-full flex-col items-center justify-center gap-3 rounded-lg border border-dashed px-4 text-center">
-              <div className="flex size-11 items-center justify-center rounded-lg bg-muted">
-                <Plus className="size-5 text-muted-foreground" />
-              </div>
-              <p className="text-sm text-muted-foreground">
-                点击左侧 + 添加第一个人
-              </p>
-              <Button type="button" size="sm" onClick={handleAddPerson}>
-                <Plus />
-                添加人员
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex min-w-0 items-center gap-2">
-                  <span
-                    className="size-2.5 rounded-full"
-                    style={{ backgroundColor: selectedColor?.ring }}
-                  />
-                  <h2 className="truncate text-base font-semibold tracking-normal">
-                    {selectedPerson.name || "未命名"}
-                  </h2>
-                </div>
-                <Button
+              return (
+                <button
+                  key={person.id}
                   type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="text-destructive hover:bg-destructive/10"
-                  onClick={() =>
-                    dispatch({ type: "REMOVE", id: selectedPerson.id })
-                  }
+                  aria-label={`选择 ${person.name || `第 ${index + 1} 人`}`}
+                  className="flex size-10 items-center justify-center rounded-2xl text-sm font-bold outline-none transition hover:scale-[1.05]"
+                  style={{
+                    ...getPersonButtonStyle(color),
+                    boxShadow: isSelected
+                      ? `0 0 0 2.5px var(--parchment), 0 0 0 5px ${color.ring}`
+                      : undefined,
+                  }}
+                  onClick={() => dispatch({ type: "SELECT", id: person.id })}
                 >
-                  <Trash2 />
-                  删除
+                  {person.name.trim().charAt(0) || index + 1}
+                </button>
+              )
+            })}
+
+            <button
+              type="button"
+              aria-label="添加人员"
+              title={canAddPerson ? "添加人员" : `最多 ${MAX_PERSON_COUNT} 人`}
+              className="flex size-10 items-center justify-center rounded-2xl outline-none transition hover:scale-[1.05]"
+              style={{
+                border: "2px dashed #c4b89e",
+                color: "#a0936e",
+                opacity: canAddPerson ? 1 : 0.5,
+                cursor: canAddPerson ? "pointer" : "not-allowed",
+              }}
+              onClick={handleAddPerson}
+            >
+              <Plus className="size-5" />
+            </button>
+          </aside>
+
+          <section className="min-w-0 flex-1 overflow-y-auto px-4 py-4">
+            {!selectedPerson ? (
+              <Card
+                type="dashed"
+                className="flex flex-col items-center gap-3 py-10 text-center"
+              >
+                <div
+                  className="flex size-12 items-center justify-center rounded-2xl"
+                  style={{ background: "#f0ece2" }}
+                >
+                  <Plus className="size-5" style={{ color: "#a0936e" }} />
+                </div>
+                <p className="text-sm" style={{ color: "#8a7b66" }}>
+                  点击左侧 + 添加第一个人
+                </p>
+                <Button
+                  type="primary"
+                  icon={<Plus className="size-4" />}
+                  onClick={handleAddPerson}
+                >
+                  添加人员
                 </Button>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="person-name">姓名</Label>
-                <Input
-                  id="person-name"
-                  value={selectedPerson.name}
-                  placeholder="请输入姓名"
-                  onChange={(event) =>
-                    dispatch({
-                      type: "UPDATE",
-                      id: selectedPerson.id,
-                      patch: { name: event.target.value },
-                    })
-                  }
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>生日输入方式</Label>
-                <div className="grid grid-cols-2 gap-2">
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span
+                      className="size-3 rounded-full"
+                      style={{ backgroundColor: selectedColor?.ring }}
+                    />
+                    <h2
+                      className="truncate text-base font-bold"
+                      style={{ color: "#794f27" }}
+                    >
+                      {selectedPerson.name || "未命名"}
+                    </h2>
+                  </div>
                   <Button
-                    type="button"
-                    variant={selectedPerson.mode === "lunar" ? "default" : "outline"}
-                    className="h-9"
+                    type="text"
+                    danger
+                    size="small"
+                    icon={<Trash2 className="size-4" />}
                     onClick={() =>
-                      dispatch({
-                        type: "UPDATE",
-                        id: selectedPerson.id,
-                        patch: { mode: "lunar" },
-                      })
+                      dispatch({ type: "REMOVE", id: selectedPerson.id })
                     }
                   >
-                    农历
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={selectedPerson.mode === "solar" ? "default" : "outline"}
-                    className="h-9"
-                    onClick={() =>
-                      dispatch({
-                        type: "UPDATE",
-                        id: selectedPerson.id,
-                        patch: { mode: "solar" },
-                      })
-                    }
-                  >
-                    公历
+                    删除
                   </Button>
                 </div>
-              </div>
 
-              {selectedPerson.mode === "lunar" ? (
-                <div className="space-y-3">
+                <div>
+                  <FieldLabel>姓名</FieldLabel>
+                  <Input
+                    value={selectedPerson.name}
+                    placeholder="请输入姓名"
+                    onChange={(event) =>
+                      dispatch({
+                        type: "UPDATE",
+                        id: selectedPerson.id,
+                        patch: { name: event.target.value },
+                      })
+                    }
+                  />
+                </div>
+
+                <div>
+                  <FieldLabel>生日输入方式</FieldLabel>
                   <div className="grid grid-cols-2 gap-2">
-                    <div className="min-w-0 space-y-2">
-                      <Label>农历月份</Label>
-                      <Select
-                        value={selectedPerson.lunarMonth?.toString() ?? ""}
-                        onValueChange={(value) =>
-                          dispatch({
-                            type: "UPDATE",
-                            id: selectedPerson.id,
-                            patch: { lunarMonth: Number(value) },
-                          })
-                        }
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="选择月份" />
-                        </SelectTrigger>
-                        <SelectContent
-                          position="popper"
-                          className="max-h-64 w-(--radix-select-trigger-width)"
-                        >
-                          {LUNAR_MONTHS.map((month, index) => (
-                            <SelectItem key={month} value={(index + 1).toString()}>
-                              {month}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="min-w-0 space-y-2">
-                      <Label>农历日期</Label>
-                      <Select
-                        value={selectedPerson.lunarDay?.toString() ?? ""}
-                        disabled={!selectedPerson.lunarMonth}
-                        onValueChange={(value) =>
-                          dispatch({
-                            type: "UPDATE",
-                            id: selectedPerson.id,
-                            patch: { lunarDay: Number(value) },
-                          })
-                        }
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue
-                            placeholder={
-                              selectedPerson.lunarMonth
-                                ? "选择日期"
-                                : "请先选月份"
-                            }
-                          />
-                        </SelectTrigger>
-                        <SelectContent
-                          position="popper"
-                          className="max-h-60 w-(--radix-select-trigger-width)"
-                        >
-                          {LUNAR_DAYS.map((day, index) => (
-                            <SelectItem key={day} value={(index + 1).toString()}>
-                              {day}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <label className="flex min-h-8 items-center gap-2 rounded-lg border bg-muted/30 px-2.5 text-sm">
-                    <Checkbox
-                      checked={selectedPerson.isLeap}
-                      onCheckedChange={(checked) =>
+                    <Button
+                      block
+                      type={selectedPerson.mode === "lunar" ? "primary" : "default"}
+                      onClick={() =>
                         dispatch({
                           type: "UPDATE",
                           id: selectedPerson.id,
-                          patch: { isLeap: checked === true },
+                          patch: { mode: "lunar" },
                         })
                       }
-                    />
-                    此日期为闰月生日
-                  </label>
+                    >
+                      农历
+                    </Button>
+                    <Button
+                      block
+                      type={selectedPerson.mode === "solar" ? "primary" : "default"}
+                      onClick={() =>
+                        dispatch({
+                          type: "UPDATE",
+                          id: selectedPerson.id,
+                          patch: { mode: "solar" },
+                        })
+                      }
+                    >
+                      公历
+                    </Button>
+                  </div>
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="min-w-0 space-y-2">
-                      <Label>{showAllYears ? "公元" : "年"}</Label>
-                      {showAllYears ? (
-                        <Input
-                          type="number"
-                          min={1}
-                          max={SOLAR_YEAR_MAX}
-                          placeholder="年份"
-                          value={yearInput}
-                          aria-invalid={
-                            yearInput !== "" &&
-                            (!/^\d+$/.test(yearInput) ||
-                              Number(yearInput) < 1 ||
-                              Number(yearInput) > SOLAR_YEAR_MAX)
+
+                {selectedPerson.mode === "lunar" ? (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="min-w-0">
+                        <FieldLabel>农历月份</FieldLabel>
+                        <Select
+                          placeholder="选择月份"
+                          value={selectedPerson.lunarMonth?.toString() ?? ""}
+                          options={lunarMonthOptions}
+                          onChange={(key) =>
+                            dispatch({
+                              type: "UPDATE",
+                              id: selectedPerson.id,
+                              patch: { lunarMonth: Number(key) },
+                            })
                           }
-                          onChange={(e) => {
-                            const raw = e.target.value
-                            setYearInput(raw)
-                            const year = Number(raw)
-                            if (
-                              /^\d+$/.test(raw) &&
-                              year >= 1 &&
-                              year <= SOLAR_YEAR_MAX
-                            ) {
+                        />
+                      </div>
+
+                      <div className="min-w-0">
+                        <FieldLabel>农历日期</FieldLabel>
+                        <Select
+                          placeholder={
+                            selectedPerson.lunarMonth ? "选择日期" : "请先选月份"
+                          }
+                          disabled={!selectedPerson.lunarMonth}
+                          value={selectedPerson.lunarDay?.toString() ?? ""}
+                          options={lunarDayOptions}
+                          onChange={(key) =>
+                            dispatch({
+                              type: "UPDATE",
+                              id: selectedPerson.id,
+                              patch: { lunarDay: Number(key) },
+                            })
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    <Card
+                      className="flex items-center justify-between gap-3"
+                      style={{ padding: "10px 16px" }}
+                    >
+                      <span className="text-sm" style={{ color: "#725d42" }}>
+                        此日期为闰月生日
+                      </span>
+                      <Switch
+                        checked={selectedPerson.isLeap}
+                        onChange={(checked) =>
+                          dispatch({
+                            type: "UPDATE",
+                            id: selectedPerson.id,
+                            patch: { isLeap: checked },
+                          })
+                        }
+                      />
+                    </Card>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="min-w-0">
+                        <FieldLabel>{showAllYears ? "公元" : "年"}</FieldLabel>
+                        {showAllYears ? (
+                          <Input
+                            type="number"
+                            min={1}
+                            max={SOLAR_YEAR_MAX}
+                            placeholder="年份"
+                            value={yearInput}
+                            status={
+                              yearInput !== "" &&
+                              (!/^\d+$/.test(yearInput) ||
+                                Number(yearInput) < 1 ||
+                                Number(yearInput) > SOLAR_YEAR_MAX)
+                                ? "error"
+                                : undefined
+                            }
+                            onChange={(event) => {
+                              const raw = event.target.value
+                              setYearInput(raw)
+                              const year = Number(raw)
+                              if (
+                                /^\d+$/.test(raw) &&
+                                year >= 1 &&
+                                year <= SOLAR_YEAR_MAX
+                              ) {
+                                dispatch({
+                                  type: "UPDATE",
+                                  id: selectedPerson.id,
+                                  patch: buildSolarPatch(selectedPerson, {
+                                    solarYear: year,
+                                  }),
+                                })
+                              }
+                            }}
+                          />
+                        ) : (
+                          <Select
+                            placeholder="年份"
+                            value={selectedPerson.solarYear?.toString() ?? ""}
+                            options={solarYearOptions}
+                            onChange={(key) =>
                               dispatch({
                                 type: "UPDATE",
                                 id: selectedPerson.id,
                                 patch: buildSolarPatch(selectedPerson, {
-                                  solarYear: year,
+                                  solarYear: Number(key),
                                 }),
                               })
                             }
-                          }}
-                        />
-                      ) : (
+                          />
+                        )}
+                      </div>
+
+                      <div className="min-w-0">
+                        <FieldLabel>月</FieldLabel>
                         <Select
-                          value={selectedPerson.solarYear?.toString() ?? ""}
-                          onValueChange={(value) =>
+                          placeholder="月份"
+                          disabled={!selectedPerson.solarYear}
+                          value={selectedPerson.solarMonth?.toString() ?? ""}
+                          options={solarMonthOptions}
+                          onChange={(key) =>
                             dispatch({
                               type: "UPDATE",
                               id: selectedPerson.id,
                               patch: buildSolarPatch(selectedPerson, {
-                                solarYear: Number(value),
+                                solarMonth: Number(key),
                               }),
                             })
                           }
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="年份" />
-                          </SelectTrigger>
-                          <SelectContent
-                            position="popper"
-                            className="max-h-60 w-(--radix-select-trigger-width)"
-                          >
-                            {SOLAR_YEARS.map((year) => (
-                              <SelectItem key={year} value={year.toString()}>
-                                {year}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      )}
+                        />
+                      </div>
+
+                      <div className="min-w-0">
+                        <FieldLabel>日</FieldLabel>
+                        <Select
+                          placeholder="日期"
+                          disabled={!selectedPerson.solarMonth}
+                          value={selectedPerson.solarDay?.toString() ?? ""}
+                          options={solarDayOptions}
+                          onChange={(key) =>
+                            dispatch({
+                              type: "UPDATE",
+                              id: selectedPerson.id,
+                              patch: buildSolarPatch(selectedPerson, {
+                                solarDay: Number(key),
+                              }),
+                            })
+                          }
+                        />
+                      </div>
                     </div>
 
-                    <div className="min-w-0 space-y-2">
-                      <Label>月</Label>
-                      <Select
-                        value={selectedPerson.solarMonth?.toString() ?? ""}
-                        disabled={!selectedPerson.solarYear}
-                        onValueChange={(value) =>
-                          dispatch({
-                            type: "UPDATE",
-                            id: selectedPerson.id,
-                            patch: buildSolarPatch(selectedPerson, {
-                              solarMonth: Number(value),
-                            }),
-                          })
-                        }
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="月份" />
-                        </SelectTrigger>
-                        <SelectContent
-                          position="popper"
-                          className="max-h-64 w-(--radix-select-trigger-width)"
-                        >
-                          {solarMonths.map((month) => (
-                            <SelectItem key={month} value={month.toString()}>
-                              {month} 月
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="min-w-0 space-y-2">
-                      <Label>日</Label>
-                      <Select
-                        value={selectedPerson.solarDay?.toString() ?? ""}
-                        disabled={!selectedPerson.solarMonth}
-                        onValueChange={(value) =>
-                          dispatch({
-                            type: "UPDATE",
-                            id: selectedPerson.id,
-                            patch: buildSolarPatch(selectedPerson, {
-                              solarDay: Number(value),
-                            }),
-                          })
-                        }
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="日期" />
-                        </SelectTrigger>
-                        <SelectContent
-                          position="popper"
-                          className="max-h-60 w-(--radix-select-trigger-width)"
-                        >
-                          {solarDays.map((day) => (
-                            <SelectItem key={day} value={day.toString()}>
-                              {day} 日
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <label className="flex min-h-8 items-center gap-2 rounded-lg border bg-muted/30 px-2.5 text-sm">
-                    <Checkbox
-                      checked={showAllYears}
-                      onCheckedChange={(checked) => {
-                        const next = checked === true
-                        setShowAllYears(next)
-                        setYearInput(next ? (selectedPerson.solarYear?.toString() ?? "") : "")
-                      }}
-                    />
-                    显示所有年份
-                  </label>
-
-                  {solarConversion ? (
-                    <div className="flex items-start gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm text-violet-950">
-                      <Sparkles className="size-4 text-violet-600" />
-                      <span>
-                        农历 {solarConversion.lunarYearName}年{" "}
-                        {solarConversion.label}
-                        {solarConversion.isLeap ? "（闰月）" : "（非闰月）"}
+                    <Card
+                      className="flex items-center justify-between gap-3"
+                      style={{ padding: "10px 16px" }}
+                    >
+                      <span className="text-sm" style={{ color: "#725d42" }}>
+                        显示所有年份
                       </span>
-                    </div>
-                  ) : null}
-                </div>
-              )}
+                      <Switch
+                        checked={showAllYears}
+                        onChange={(checked) => {
+                          setShowAllYears(checked)
+                          setYearInput(
+                            checked
+                              ? (selectedPerson.solarYear?.toString() ?? "")
+                              : "",
+                          )
+                        }}
+                      />
+                    </Card>
 
-              {showLeapFallback ? (
-                <div className="space-y-2 rounded-lg border bg-muted/30 p-3">
-                  <Label>闰月降级策略</Label>
-                  <Select
-                    value={selectedPerson.leapFallback}
-                    onValueChange={(value) =>
+                    {solarConversion ? (
+                      <Card color="purple" className="flex items-start gap-2">
+                        <Sparkles
+                          className="size-4 shrink-0"
+                          style={{ marginTop: 2 }}
+                        />
+                        <span className="text-sm">
+                          农历 {solarConversion.lunarYearName}年{" "}
+                          {solarConversion.label}
+                          {solarConversion.isLeap ? "（闰月）" : "（非闰月）"}
+                        </span>
+                      </Card>
+                    ) : null}
+                  </div>
+                )}
+
+                {showLeapFallback ? (
+                  <Card style={{ padding: "12px 16px" }}>
+                    <FieldLabel>闰月降级策略</FieldLabel>
+                    <Select
+                      value={selectedPerson.leapFallback}
+                      options={LEAP_FALLBACK_OPTIONS}
+                      onChange={(key) =>
+                        dispatch({
+                          type: "UPDATE",
+                          id: selectedPerson.id,
+                          patch: {
+                            leapFallback: key as PersonInput["leapFallback"],
+                          },
+                        })
+                      }
+                    />
+                  </Card>
+                ) : null}
+
+                {showDay30Fallback ? (
+                  <Card style={{ padding: "12px 16px" }}>
+                    <p className="mb-2 text-sm" style={{ color: "#8a7b66" }}>
+                      某些年份该农历月没有三十日，请选择处理方式。
+                    </p>
+                    <Select
+                      value={selectedPerson.day30Fallback}
+                      options={DAY30_FALLBACK_OPTIONS}
+                      onChange={(key) =>
+                        dispatch({
+                          type: "UPDATE",
+                          id: selectedPerson.id,
+                          patch: {
+                            day30Fallback: key as PersonInput["day30Fallback"],
+                          },
+                        })
+                      }
+                    />
+                  </Card>
+                ) : null}
+
+                <div>
+                  <FieldLabel>备注</FieldLabel>
+                  <textarea
+                    rows={3}
+                    value={selectedPerson.description}
+                    placeholder="如：喜欢巧克力蛋糕，讨厌惊喜派对"
+                    className="w-full resize-none rounded-2xl px-4 py-2.5 text-sm outline-none"
+                    style={TEXTAREA_STYLE}
+                    onChange={(event) =>
                       dispatch({
                         type: "UPDATE",
                         id: selectedPerson.id,
-                        patch: {
-                          leapFallback: value as PersonInput["leapFallback"],
-                        },
+                        patch: { description: event.target.value },
                       })
                     }
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="sameMonth">用普通月代替</SelectItem>
-                      <SelectItem value="nextMonth">用后一月代替</SelectItem>
-                      <SelectItem value="skip">跳过该年</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  />
                 </div>
-              ) : null}
-
-              {showDay30Fallback ? (
-                <div className="space-y-2 rounded-lg border bg-muted/40 p-3">
-                  <p className="text-sm text-muted-foreground">
-                    某些年份该农历月没有三十日，请选择处理方式。
-                  </p>
-                  <Select
-                    value={selectedPerson.day30Fallback}
-                    onValueChange={(value) =>
-                      dispatch({
-                        type: "UPDATE",
-                        id: selectedPerson.id,
-                        patch: {
-                          day30Fallback: value as PersonInput["day30Fallback"],
-                        },
-                      })
-                    }
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="use29">用 29 日代替</SelectItem>
-                      <SelectItem value="skip">跳过该年</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              ) : null}
-
-              <div className="space-y-2">
-                <Label htmlFor="person-description">备注</Label>
-                <Textarea
-                  id="person-description"
-                  rows={3}
-                  value={selectedPerson.description}
-                  placeholder="如：喜欢巧克力蛋糕，讨厌惊喜派对"
-                  onChange={(event) =>
-                    dispatch({
-                      type: "UPDATE",
-                      id: selectedPerson.id,
-                      patch: { description: event.target.value },
-                    })
-                  }
-                />
               </div>
-            </div>
-          )}
+            )}
+
+            <Footer type="tree" className="mt-6" />
+          </section>
         </section>
-      </section>
 
-      <footer className="border-t p-3">
-        <Button
-          type="button"
-          className={cn(
-            "h-10 w-full",
-            exportBlockReason && "cursor-not-allowed opacity-60",
-          )}
-          aria-disabled={Boolean(exportBlockReason)}
-          onClick={handleExportClick}
+        <footer
+          className="flex-none p-3"
+          style={{ borderTop: "2px solid #e8dcc8" }}
         >
-          <Download />
-          导出（{state.persons.length} 人）
-        </Button>
-      </footer>
+          <Button
+            type="primary"
+            block
+            icon={<Download className="size-4" />}
+            style={exportBlockReason ? { opacity: 0.6 } : undefined}
+            onClick={handleExportClick}
+          >
+            导出（{state.persons.length} 人）
+          </Button>
+        </footer>
 
-      <Sheet open={exportSheetOpen} onOpenChange={setExportSheetOpen}>
-        <SheetContent
-          side="bottom"
-          className="mx-auto max-w-sm rounded-t-xl pb-[max(1rem,env(safe-area-inset-bottom))]"
-        >
-          <SheetHeader>
-            <SheetTitle>选择导出格式</SheetTitle>
-            <SheetDescription>
-              选择 ICS 可导入日历；选择 TXT 可查看每年日期清单
-            </SheetDescription>
-          </SheetHeader>
-
-          <div className="grid grid-cols-2 gap-3 px-4">
-            <button
-              type="button"
-              className={cn(
-                "min-h-24 rounded-lg border p-3 text-left transition hover:bg-muted/50",
-                exportFormat === "ics" &&
-                  "border-primary bg-muted/50 ring-2 ring-ring/30",
-              )}
-              onClick={() => setExportFormat("ics")}
-            >
-              <Calendar className="mb-2 size-5" />
-              <div className="font-medium">.ics 日历</div>
-              <div className="text-xs text-muted-foreground">
-                导入 Google Calendar
-              </div>
-            </button>
-            <button
-              type="button"
-              className={cn(
-                "min-h-24 rounded-lg border p-3 text-left transition hover:bg-muted/50",
-                exportFormat === "txt" &&
-                  "border-primary bg-muted/50 ring-2 ring-ring/30",
-              )}
-              onClick={() => setExportFormat("txt")}
-            >
-              <FileText className="mb-2 size-5" />
-              <div className="font-medium">.txt 文本</div>
-              <div className="text-xs text-muted-foreground">纯文本每年一行</div>
-            </button>
-          </div>
-
-          <div className="space-y-1 px-4 text-xs text-muted-foreground">
-            <p>建议在 Google Calendar 中新建独立日历后再导入。</p>
-            <p>数据仅保存在本浏览器，不会上传任何服务器。</p>
-          </div>
-
-          <SheetFooter className="grid grid-cols-2 gap-2">
-            <SheetClose asChild>
-              <Button type="button" variant="outline">
-                取消
+        <Modal
+          open={exportSheetOpen}
+          title="选择导出格式"
+          typewriter={false}
+          onClose={() => setExportSheetOpen(false)}
+          footer={
+            <>
+              <Button onClick={() => setExportSheetOpen(false)}>取消</Button>
+              <Button type="primary" onClick={handleConfirmExport}>
+                确认导出
               </Button>
-            </SheetClose>
-            <Button type="button" onClick={handleConfirmExport}>
-              确认导出
-            </Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
-
-      <Sheet open={wechatSheet.open} onOpenChange={(open) => setWechatSheet((s) => ({ ...s, open }))}>
-        <SheetContent
-          side="bottom"
-          className="mx-auto flex max-h-[80dvh] max-w-sm flex-col rounded-t-xl pb-[max(1rem,env(safe-area-inset-bottom))]"
+            </>
+          }
         >
-          <SheetHeader>
-            <SheetTitle>
-              {wechatSheet.format === "ics" ? "复制 ICS 内容" : "复制文本内容"}
-            </SheetTitle>
-            <SheetDescription>
+          <div className="space-y-3">
+            <p className="text-sm" style={{ color: "#8a7b66" }}>
+              选择 ICS 可导入日历；选择 TXT 可查看每年日期清单
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                {
+                  format: "ics" as const,
+                  icon: <Calendar className="size-5" />,
+                  title: ".ics 日历",
+                  desc: "导入 Google Calendar",
+                },
+                {
+                  format: "txt" as const,
+                  icon: <FileText className="size-5" />,
+                  title: ".txt 文本",
+                  desc: "纯文本每年一行",
+                },
+              ].map(({ format, icon, title, desc }) => (
+                <Card
+                  key={format}
+                  onClick={() => setExportFormat(format)}
+                  style={{
+                    cursor: "pointer",
+                    padding: "14px",
+                    ...(exportFormat === format
+                      ? { outline: "2.5px solid #19c8b9", outlineOffset: "2px" }
+                      : {}),
+                  }}
+                >
+                  <div className="mb-2" style={{ color: "#725d42" }}>
+                    {icon}
+                  </div>
+                  <div className="font-bold" style={{ color: "#794f27" }}>
+                    {title}
+                  </div>
+                  <div className="text-xs" style={{ color: "#8a7b66" }}>
+                    {desc}
+                  </div>
+                </Card>
+              ))}
+            </div>
+            <div className="space-y-1 text-xs" style={{ color: "#8a7b66" }}>
+              <p>建议在 Google Calendar 中新建独立日历后再导入。</p>
+              <p>数据仅保存在本浏览器，不会上传任何服务器。</p>
+            </div>
+          </div>
+        </Modal>
+
+        <Modal
+          open={wechatSheet.open}
+          title={wechatSheet.format === "ics" ? "复制 ICS 内容" : "复制文本内容"}
+          typewriter={false}
+          onClose={() => setWechatSheet((s) => ({ ...s, open: false }))}
+          footer={
+            <>
+              <Button onClick={() => setWechatSheet((s) => ({ ...s, open: false }))}>
+                关闭
+              </Button>
+              <Button
+                type="primary"
+                onClick={() => {
+                  navigator.clipboard
+                    .writeText(wechatSheet.content.replace(/^﻿/, ""))
+                    .then(() => {
+                      toast.success("已复制到剪贴板")
+                    })
+                    .catch(() => {
+                      toast.error("复制失败，请手动长按选择全部")
+                    })
+                }}
+              >
+                复制全部
+              </Button>
+            </>
+          }
+        >
+          <div className="space-y-3">
+            <p className="text-sm" style={{ color: "#8a7b66" }}>
               {wechatSheet.format === "ics"
                 ? "复制后，在电脑浏览器中粘贴到日历导入工具，或发送给自己再导入。"
                 : "复制后粘贴到任意文本编辑器保存。"}
-            </SheetDescription>
-          </SheetHeader>
-          <textarea
-            readOnly
-            className="min-h-0 flex-1 resize-none rounded-lg border bg-muted/30 p-3 font-mono text-xs"
-            value={wechatSheet.content}
-            onFocus={(e) => e.target.select()}
-          />
-          <SheetFooter className="grid grid-cols-2 gap-2">
-            <SheetClose asChild>
-              <Button type="button" variant="outline">关闭</Button>
-            </SheetClose>
-            <Button
-              type="button"
-              onClick={() => {
-                navigator.clipboard.writeText(wechatSheet.content.replace(/^﻿/, "")).then(() => {
-                  toast.success("已复制到剪贴板")
-                }).catch(() => {
-                  toast.error("复制失败，请手动长按选择全部")
-                })
-              }}
-            >
-              复制全部
-            </Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
+            </p>
+            <textarea
+              readOnly
+              value={wechatSheet.content}
+              className="w-full resize-none rounded-2xl p-3 font-mono text-xs outline-none"
+              style={{ minHeight: "40dvh", ...TEXTAREA_STYLE }}
+              onFocus={(event) => event.target.select()}
+            />
+          </div>
+        </Modal>
 
-      <Toaster position="top-center" richColors closeButton />
-    </main>
+        <Toaster position="top-center" richColors closeButton />
+      </main>
+    </Cursor>
   )
 }
 
