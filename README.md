@@ -25,5 +25,5 @@ npm run dev
 ## 技术栈
 
 - React + TypeScript + Vite
-- Tailwind CSS + shadcn/ui
+- [animal-island-ui](https://github.com/guokaigdg/animal-island-ui) 组件库（动物森友会风格）+ Tailwind CSS（布局）
 - [tyme4ts](https://github.com/6tail/tyme4ts) 农历转换库
