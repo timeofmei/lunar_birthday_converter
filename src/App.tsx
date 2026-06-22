@@ -301,13 +301,13 @@ function App() {
         style={{ background: "var(--parchment)" }}
       >
         <header
-          className="flex-none px-4 py-4"
+          className="flex flex-none flex-col items-start gap-3 px-4 py-4"
           style={{ borderBottom: "2px solid #e8dcc8" }}
         >
           <Title size="small" color="app-green">
             农历生日 → 日历提醒
           </Title>
-          <p className="mt-2 text-xs" style={{ color: "#8a7b66" }}>
+          <p className="text-xs" style={{ color: "#8a7b66" }}>
             生成日历文件，导入提醒
           </p>
         </header>
