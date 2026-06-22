@@ -40,7 +40,14 @@ p {
   margin: 0;
 }
 
-/* animal-island-ui 的 Select 触发器默认不撑满，让它填满所在列宽 */
+/* animal-island-ui 的 Select：外层 wrapper 默认 inline-block + min-width:140px，
+   在窄列（如三列年/月/日）里会撑破容器出现横向滚动。让它在所在列内自适应收缩。
+   注：类名带库版本哈希，升级库时需复核。 */
+[class*="animal-wrapper-pbOTq"] {
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
 [class*="animal-trigger-2"] {
   width: 100%;
 }
