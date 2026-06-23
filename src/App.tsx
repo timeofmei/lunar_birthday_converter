@@ -763,9 +763,11 @@ function App() {
                   style={{
                     cursor: "pointer",
                     padding: "14px",
-                    ...(exportFormat === format
-                      ? { outline: "2.5px solid #19c8b9", outlineOffset: "2px" }
-                      : {}),
+                    border:
+                      exportFormat === format
+                        ? "2px solid #19c8b9"
+                        : "2px solid #e8dcc8",
+                    background: exportFormat === format ? "#e6f9f6" : undefined,
                   }}
                 >
                   <div className="mb-2" style={{ color: "#725d42" }}>
