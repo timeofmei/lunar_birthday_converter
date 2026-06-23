@@ -51,3 +51,16 @@ p {
 [class*="animal-trigger-2"] {
   width: 100%;
 }
+
+/* Select 下拉默认是"侧边飞出"（组件 JS 内联设置 left:100% / right:100% 等），
+   在窄列里会与触发器错位。强制改为常规的"正下方、左对齐、同宽"下拉。
+   用 !important 覆盖组件写在元素上的内联定位样式。 */
+[class*="animal-dropdown-"] {
+  inset: 100% auto auto 0 !important;
+  margin: 6px 0 0 !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  transform: none !important;
+  max-height: 240px;
+  overflow-y: auto;
+}
