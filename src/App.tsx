@@ -399,13 +399,13 @@ function App() {
                     type="text"
                     danger
                     size="small"
+                    aria-label="删除"
+                    title="删除"
                     icon={<Trash2 className="size-4" />}
                     onClick={() =>
                       dispatch({ type: "REMOVE", id: selectedPerson.id })
                     }
-                  >
-                    删除
-                  </Button>
+                  />
                 </div>
 
                 <div>
